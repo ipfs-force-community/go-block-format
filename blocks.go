@@ -8,9 +8,23 @@ import (
 	"fmt"
 
 	cid "github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
 	mh "github.com/multiformats/go-multihash"
 )
+
+// DefaultIpfsHash is the current default hash function used by IPFS.
+const DefaultIpfsHash = mh.SHA2_256
+
+// Hash is the global IPFS hash function. uses multihash SHA2_256, 256 bits
+func Hash(data []byte) mh.Multihash {
+	h, err := mh.Sum(data, DefaultIpfsHash, -1)
+	if err != nil {
+		// this error can be safely ignored (panic) because multihash only fails
+		// from the selection of hash function. If the fn + length are valid, it
+		// won't error.
+		panic("multihash failed to hash using SHA2_256.")
+	}
+	return h
+}
 
 // ErrWrongHash is returned when the Cid of a block is not the expected
 // according to the contents. It is currently used only when debugging.
@@ -34,23 +48,13 @@ type BasicBlock struct {
 // NewBlock creates a Block object from opaque data. It will hash the data.
 func NewBlock(data []byte) *BasicBlock {
 	// TODO: fix assumptions
-	return &BasicBlock{data: data, cid: cid.NewCidV0(u.Hash(data))}
+	return &BasicBlock{data: data, cid: cid.NewCidV0(Hash(data))}
 }
 
 // NewBlockWithCid creates a new block when the hash of the data
 // is already known, this is used to save time in situations where
 // we are able to be confident that the data is correct.
 func NewBlockWithCid(data []byte, c cid.Cid) (*BasicBlock, error) {
-	if u.Debug {
-		chkc, err := c.Prefix().Sum(data)
-		if err != nil {
-			return nil, err
-		}
-
-		if !chkc.Equals(c) {
-			return nil, ErrWrongHash
-		}
-	}
 	return &BasicBlock{data: data, cid: c}, nil
 }
 
